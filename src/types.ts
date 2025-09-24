@@ -25,6 +25,6 @@ export type CacheCommand =
   | { type: 'STATS' }
   | { type: 'PING' };
 
-export type CacheResponse<T = any> = 
-  | { success: true; data?: T }
-  | { success: false; error: string };
+export type CacheSuccessResponse<T = any> = { success: true; data?: T };
+export type CacheErrorResponse = { success: false; error: string };
+export type CacheResponse<T = any> = CacheSuccessResponse<T> | CacheErrorResponse;

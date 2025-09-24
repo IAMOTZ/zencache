@@ -10,7 +10,7 @@ export class ZenCache {
     // Start cleanup interval to remove expired items
     this.cleanupInterval = setInterval(() => {
       this.cleanup();
-    }, 60000); // Cleanup every minute
+    }, ZenCache.CLEANUP_INTERVAL_MS);
   }
 
   /**
@@ -198,4 +198,6 @@ export class ZenCache {
     }
     this.store.clear();
   }
+
+  static CLEANUP_INTERVAL_MS = 60000; // Cleanup expired items every minute
 }
