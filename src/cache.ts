@@ -126,7 +126,10 @@ export class ZenCache {
       switch (command.type) {
         case 'SET':
           const success = this.set(command.key, command.value, { ttl: command.ttl });
-          return { success, data: success };
+          if (!success) {
+            return { success: false, error: 'Failed to set value' };
+          }
+          return { success: true, data: success };
           
         case 'GET':
           const value = this.get(command.key);
