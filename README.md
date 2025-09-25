@@ -7,7 +7,6 @@ A simple, high-performance in-memory caching service similar to Redis or Memcach
 - **In-memory storage** with fast key-value operations
 - **TTL (Time To Live)** support for automatic expiration
 - **TCP server** for client connections
-- **Simple text-based protocol** for easy integration
 - **TypeScript client library** for easy usage
 - **Statistics tracking** with hit/miss rates
 - **Pattern matching** for key searches
@@ -16,12 +15,11 @@ A simple, high-performance in-memory caching service similar to Redis or Memcach
 ## Installation
 
 ### Prerequisites
-- Node 
-- Yarn
+- Node.js (v18 or higher)
+- Yarn package manager
 
 ```bash
 yarn install
-yarn build
 ```
 
 ## Usage
@@ -49,7 +47,10 @@ HOST=0.0.0.0 PORT=6380 yarn dev
 import { ZenCacheClient } from './src/client';
 
 async function example() {
-  const client = new ZenCacheClient('localhost', 6379);
+  const client = new ZenCacheClient({
+    host: 'localhost', // Server host (default: localhost)
+    port: 6379,        // Server port (default: 6379)
+  });
   
   try {
     // Connect to the server
@@ -93,6 +94,24 @@ async function example() {
 
 ## API Reference
 
+### Server Config
+
+The `ZenCacheServer` constructor accepts a configuration object with the following options:
+
+- `port` (number, optional): The port to listen on. Defaults to 6379.
+- `host` (string, optional): The host address to bind to. Defaults to 'localhost'.
+- `cacheConfig` (object, optional): Configuration options for the underlying cache:
+  - `maxMemoryMB` (number, optional): Maximum memory usage in megabytes. Defaults to 10000 (10GB).
+
+
+### Client Config
+
+The `ZenCacheClient` constructor accepts a configuration object with the following options:
+
+- `port` (number, optional): The port to connect to. Defaults to 6379.
+- `host` (string, optional): The host address to connect to. Defaults to 'localhost'.
+
+
 ### Client Methods
 
 - `connect()`: Connect to the cache server
@@ -106,16 +125,6 @@ async function example() {
 - `stats()`: Get cache statistics
 - `ping()`: Ping the server
 
-### Server Commands
-
-- `SET key value [ttl]`: Set a key-value pair
-- `GET key`: Get a value by key
-- `DELETE key`: Delete a key
-- `EXISTS key`: Check if a key exists
-- `KEYS [pattern]`: List all keys or keys matching pattern
-- `CLEAR`: Clear all keys
-- `STATS`: Get cache statistics
-- `PING`: Ping the server
 
 ## Examples
 
