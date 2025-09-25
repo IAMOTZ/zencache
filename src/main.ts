@@ -3,7 +3,7 @@ import { ZenCacheServer } from './server';
 const PORT = parseInt(process.env.PORT || '6379');
 const HOST = process.env.HOST || 'localhost';
 
-const server = new ZenCacheServer(PORT, HOST);
+const server = new ZenCacheServer({ port: PORT, host: HOST });
 
 // Graceful shutdown
 process.on('SIGINT', async () => {

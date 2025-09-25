@@ -12,6 +12,12 @@ export interface ZenCacheConfig {
   maxMemoryMB?: number;
 }
 
+export interface ZenCacheServerConfig {
+  port?: number;
+  host?: string;
+  cacheConfig?: ZenCacheConfig;
+}
+
 export interface CacheStats {
   size: number;
   hits: number;

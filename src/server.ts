@@ -1,6 +1,6 @@
 import * as net from 'net';
 import { ZenCache } from './cache';
-import { CacheCommand, CacheResponse } from './types';
+import { CacheCommand, CacheResponse, ZenCacheServerConfig } from './types';
 
 export class ZenCacheServer {
   private server: net.Server;
@@ -8,10 +8,10 @@ export class ZenCacheServer {
   private port: number;
   private host: string;
 
-  constructor(port: number = 6379, host: string = 'localhost') {
-    this.port = port;
-    this.host = host;
-    this.cache = new ZenCache();
+  constructor(config: ZenCacheServerConfig) {
+    this.host = config.host || 'localhost';
+    this.port = typeof config.port === 'number' ? config.port : 6379;
+    this.cache = new ZenCache(config.cacheConfig);
     this.server = net.createServer(this.onConnection);
     this.server.on('error', this.onServerError);
   }
