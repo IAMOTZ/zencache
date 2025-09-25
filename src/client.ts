@@ -1,6 +1,6 @@
 import * as net from 'net';
 import { randomUUID } from 'crypto';
-import { 
+import {
   CacheCommand,
   CacheErrorResponse,
   CacheResponse,
@@ -41,7 +41,6 @@ export class ZenCacheClient {
 
       this.socket.on('close', () => {
         this.connected = false;
-        console.info('Connection to ZenCache server closed');
       });
     });
   }
