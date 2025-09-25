@@ -1,47 +1,51 @@
 import * as net from 'net';
-import { CacheResponse } from './types';
+import { randomUUID } from 'crypto';
+import { 
+  CacheCommand,
+  CacheErrorResponse,
+  CacheResponse,
+  CacheSuccessResponse
+} from './types';
 
 export class ZenCacheClient {
   private socket: net.Socket | null = null;
   private host: string;
   private port: number;
-  private connected: boolean = false;
+  private connected = false;
+
+  private buffer = '';
+  private pending = new Map<string, { resolve: (res: CacheSuccessResponse) => void, reject: (err: CacheErrorResponse) => void }>();
 
   constructor(host: string = 'localhost', port: number = 6379) {
     this.host = host;
     this.port = port;
   }
 
-  /**
-   * Connect to the ZenCache server
-   */
   async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.socket = new net.Socket();
-      
+      this.socket = net.createConnection({ host: this.host, port: this.port });
+
       this.socket.on('connect', () => {
         this.connected = true;
-        console.log(`Connected to ZenCache server at ${this.host}:${this.port}`);
+        console.info(`Connected to ZenCache server at ${this.host}:${this.port}`);
         resolve();
       });
 
+      this.socket.on('data', (chunk: Buffer) => this.onData(chunk));
+
       this.socket.on('error', (error: Error) => {
         this.connected = false;
+        this.rejectAll(error);
         reject(error);
       });
 
       this.socket.on('close', () => {
         this.connected = false;
-        console.log('Connection to ZenCache server closed');
+        console.info('Connection to ZenCache server closed');
       });
-
-      this.socket.connect(this.port, this.host);
     });
   }
 
-  /**
-   * Disconnect from the server
-   */
   disconnect(): void {
     if (this.socket) {
       this.socket.end();
@@ -50,157 +54,95 @@ export class ZenCacheClient {
     }
   }
 
-  /**
-   * Send a command to the server and get response
-   */
-  private async sendCommand(command: string): Promise<CacheResponse> {
+  private onData(chunk: Buffer): void {
+    this.buffer += chunk.toString();
+    let boundary: number;
+
+    while ((boundary = this.buffer.indexOf('\n')) >= 0) {
+      const raw = this.buffer.slice(0, boundary).trim();
+      this.buffer = this.buffer.slice(boundary + 1);
+
+      if (!raw) continue;
+
+      try {
+        const response: CacheResponse & { id: string } = JSON.parse(raw);
+        const entry = this.pending.get(response.id);
+
+        if (entry) {
+          this.pending.delete(response.id);
+          if (response.success) {
+            entry.resolve(response);
+          } else {
+            entry.reject(response);
+          }
+        }
+      } catch {
+        console.error('Invalid JSON response from server:', raw);
+      }
+    }
+  }
+
+  private rejectAll(error: Error) {
+    for (const [, entry] of this.pending) {
+      entry.reject({ success: false, error: error.message });
+    }
+    this.pending.clear();
+  }
+
+  private async sendCommand(command: CacheCommand): Promise<CacheSuccessResponse> {
     if (!this.connected || !this.socket) {
       throw new Error('Not connected to server');
     }
 
     return new Promise((resolve, reject) => {
-      let responseData = '';
+      this.pending.set(command.id, { resolve, reject });
 
-      const onData = (data: Buffer) => {
-        responseData += data.toString();
-        
-        // Check if we have a complete response (ends with \n)
-        if (responseData.includes('\n')) {
-          this.socket!.removeListener('data', onData);
-          this.socket!.removeListener('error', onError);
-          
-          try {
-            const response = JSON.parse(responseData.trim());
-            resolve(response);
-          } catch (error) {
-            reject(new Error('Invalid response format'));
-          }
-        }
-      };
-
-      const onError = (error: Error) => {
-        this.socket!.removeListener('data', onData);
-        this.socket!.removeListener('error', onError);
-        reject(error);
-      };
-
-      this.socket?.on('data', onData);
-      this.socket?.on('error', onError);
-
-      // Send the command
-      this.socket?.write(command + '\n');
+      const message = JSON.stringify(command) + '\n';
+      this.socket!.write(message);
     });
   }
 
-  /**
-   * Set a value in the cache
-   */
+  // === High-level API ===
   async set(key: string, value: any, ttl?: number): Promise<boolean> {
-    const command = ttl ? `SET ${key} ${value} ${ttl}` : `SET ${key} ${value}`;
-    const response = await this.sendCommand(command);
-    
-    if (!response.success) {
-      throw new Error(response.error);
-    }
-    
-    return response.data;
+    const res = await this.sendCommand({ id: randomUUID(), type: 'SET', key, value, ttl });
+    return res.data;
   }
 
-  /**
-   * Get a value from the cache
-   */
   async get(key: string): Promise<any> {
-    const response = await this.sendCommand(`GET ${key}`);
-    
-    if (!response.success) {
-      throw new Error(response.error);
-    }
-    
-    return response.data;
+    const res = await this.sendCommand({ id: randomUUID(), type: 'GET', key });
+    return res.data;
   }
 
-  /**
-   * Delete a key from the cache
-   */
   async delete(key: string): Promise<boolean> {
-    const response = await this.sendCommand(`DELETE ${key}`);
-    
-    if (!response.success) {
-      throw new Error(response.error);
-    }
-    
-    return response.data;
+    const res = await this.sendCommand({ id: randomUUID(), type: 'DELETE', key });
+    return res.data;
   }
 
-  /**
-   * Check if a key exists in the cache
-   */
   async exists(key: string): Promise<boolean> {
-    const response = await this.sendCommand(`EXISTS ${key}`);
-    
-    if (!response.success) {
-      throw new Error(response.error);
-    }
-    
-    return response.data;
+    const res = await this.sendCommand({ id: randomUUID(), type: 'EXISTS', key });
+    return res.data;
   }
 
-  /**
-   * Get all keys (optionally matching a pattern)
-   */
   async keys(pattern?: string): Promise<string[]> {
-    const command = pattern ? `KEYS ${pattern}` : 'KEYS';
-    const response = await this.sendCommand(command);
-    
-    if (!response.success) {
-      throw new Error(response.error);
-    }
-    
-    return response.data;
+    const res = await this.sendCommand({ id: randomUUID(), type: 'KEYS', pattern });
+    return res.data;
   }
 
-  /**
-   * Clear all items from the cache
-   */
   async clear(): Promise<boolean> {
-    const response = await this.sendCommand('CLEAR');
-    
-    if (!response.success) {
-      throw new Error(response.error);
-    }
-    
-    return response.data;
+    const res = await this.sendCommand({ id: randomUUID(), type: 'CLEAR' });
+    return res.data;
   }
 
-  /**
-   * Get cache statistics
-   */
   async stats(): Promise<any> {
-    const response = await this.sendCommand('STATS');
-    
-    if (!response.success) {
-      throw new Error(response.error);
-    }
-    
-    return response.data;
+    const res = await this.sendCommand({ id: randomUUID(), type: 'STATS' });
+    return res.data;
   }
 
-  /**
-   * Ping the server
-   */
   async ping(): Promise<string> {
-    const response = await this.sendCommand('PING');
-    
-    if (!response.success) {
-      throw new Error(response.error);
-    }
-    
-    return response.data;
+    const res = await this.sendCommand({ id: randomUUID(), type: 'PING' });
+    return res.data;
   }
 
-  /**
-   * Check if client is connected
-   */
   isConnected(): boolean {
     return this.connected;
   }
