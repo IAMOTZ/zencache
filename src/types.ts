@@ -8,11 +8,18 @@ export interface CacheOptions {
   ttl?: number; // Time to live in milliseconds
 }
 
+export interface ZenCacheConfig {
+  maxMemoryMB?: number;
+}
+
 export interface CacheStats {
   size: number;
   hits: number;
   misses: number;
   hitRate: number;
+  memoryUsageBytes: number;
+  maxMemoryBytes: number;
+  memoryUsagePercent: number;
 }
 
 export type CacheCommand = 
