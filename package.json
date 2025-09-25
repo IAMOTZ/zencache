@@ -15,7 +15,7 @@
     "memcached",
     "typescript"
   ],
-  "author": "",
+  "author": "Tunmise Ogunniyi <tunmiseogunniyi@gmail.com>",
   "license": "MIT",
   "devDependencies": {
     "@types/jest": "^30.0.0",
@@ -24,8 +24,5 @@
     "ts-jest": "^29.4.4",
     "ts-node": "^10.9.0",
     "typescript": "^5.0.0"
-  },
-  "dependencies": {
-    "net": "^1.0.2"
   }
 }
