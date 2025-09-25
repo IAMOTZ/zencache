@@ -84,11 +84,11 @@ export class ZenCacheClient {
         reject(error);
       };
 
-      this.socket.on('data', onData);
-      this.socket.on('error', onError);
+      this.socket?.on('data', onData);
+      this.socket?.on('error', onError);
 
       // Send the command
-      this.socket.write(command + '\n');
+      this.socket?.write(command + '\n');
     });
   }
 
