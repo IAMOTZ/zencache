@@ -176,13 +176,6 @@ export class ZenCache {
    * Process a cache command
    */
   processCommand(command: CacheCommand): CacheResponse {
-    if ('key' in command) {
-      const validation = ZenCache.validateKey(command.key);
-      if (!validation.success) {
-        return validation;
-      }
-    }
-
     try {
       switch (command.type) {
         case 'GET':
@@ -271,11 +264,18 @@ export class ZenCache {
     return keySize + valueSize + 100; // 100byte is a guesstimate Map entry overhead
   }
 
-  public static validateKey(key: string): CacheResponse {
-    if (key.length < 1 || key.length > 5000) {
+  public static validateCommand(command: CacheCommand): CacheResponse {
+    const { id, type } = command;
+    if (typeof id !== 'string' || typeof type !== 'string') {
+      return { success: false, error: 'Command must include an id and type' };
+    }
+    if ('key' in command && (command.key.length < 1 || command.key.length > 5000)) {
       return { success: false, error: 'Key must be between 1 and 5000 characters' };
     }
-    return { success: true };
+    if ('ttl' in command && typeof command.ttl !== 'number') {
+      return { success: false, error: 'TTL must be a number' };
+    }
+    return { success: true, data: command as CacheCommand };
   }
 
   static CLEANUP_INTERVAL_MS = 60000; // Cleanup expired items every minute

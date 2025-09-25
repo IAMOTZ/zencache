@@ -48,16 +48,17 @@ export class ZenCacheServer {
    */
   private onData = (socket: net.Socket, raw: string): void => {
     try {
-      const command: CacheCommand = JSON.parse(raw);
+      const command = JSON.parse(raw);
 
-      if (!command.id || !command.type) {
-        this.sendResponse(socket, {
-          success: false,
-          error: 'Command must include an id and type',
-        });
+      const validation = ZenCache.validateCommand(command);
+
+      if (!validation.success) {
+        this.sendResponse(
+          socket, { success: false, error: validation.error }, command.id
+        );
+        return;
       }
-
-      const response = this.cache.processCommand(command);
+      const response = this.cache.processCommand(validation.data);
       this.sendResponse(socket, response, command.id);
     } catch (error) {
       this.sendResponse(socket, {
