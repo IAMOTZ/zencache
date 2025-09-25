@@ -15,9 +15,13 @@ A simple, high-performance in-memory caching service similar to Redis or Memcach
 
 ## Installation
 
+### Prerequisites
+- Node 
+- Yarn
+
 ```bash
-npm install
-npm run build
+yarn install
+yarn build
 ```
 
 ## Usage
@@ -26,17 +30,17 @@ npm run build
 
 ```bash
 # Development mode
-npm run dev
+yarn dev
 
 # Production mode
-npm run build
-npm start
+yarn build
+yarn start
 ```
 
 The server will start on `localhost:6379` by default. You can customize the host and port using environment variables:
 
 ```bash
-HOST=0.0.0.0 PORT=6380 npm run dev
+HOST=0.0.0.0 PORT=6380 yarn dev
 ```
 
 ### Using the Client Library
@@ -87,27 +91,6 @@ async function example() {
 }
 ```
 
-### Direct TCP Protocol
-
-You can also connect directly using any TCP client (like `telnet` or `nc`):
-
-```bash
-# Connect to the server
-telnet localhost 6379
-
-# Commands (each command ends with a newline):
-SET key value
-SET key value 30000  # with TTL in milliseconds
-GET key
-DELETE key
-EXISTS key
-KEYS
-KEYS user:*
-CLEAR
-STATS
-PING
-```
-
 ## API Reference
 
 ### Client Methods
@@ -145,16 +128,16 @@ See the `examples/` directory for more usage examples:
 
 ```bash
 # Install dependencies
-npm install
+yarn install
 
 # Build the project
-npm run build
+yarn build
 
 # Run in development mode
-npm run dev
+yarn dev
 
 # Run tests
-npm test
+yarn test
 ```
 
 ## Architecture

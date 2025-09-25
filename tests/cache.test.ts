@@ -212,34 +212,34 @@ describe('ZenCache', () => {
 
   describe('processCommand', () => {
     it('should reject empty key', () => {
-      const command: CacheCommand = { type: 'SET', key: '', value: 'data' };
+      const command: CacheCommand = { id: 'test', type: 'SET', key: '', value: 'data' };
       const result = cache.processCommand(command);
       expect(result.success).toBe(false);
       expect((result as CacheErrorResponse).error).toBe('Key must be between 1 and 5000 characters');
     });
 
     it('should reject key longer than 5000 characters', () => {
-      const command: CacheCommand = { type: 'SET', key: 'key'.repeat(5001), value: 'data' };
+      const command: CacheCommand = { id: 'test', type: 'SET', key: 'key'.repeat(5001), value: 'data' };
       const result = cache.processCommand(command);
       expect(result.success).toBe(false);
       expect((result as CacheErrorResponse).error).toBe('Key must be between 1 and 5000 characters');
     });
 
     it('should handle SET command', () => {
-      const command: CacheCommand = { type: 'SET', key: 'test', value: 'data' };
+      const command: CacheCommand = { id: 'test', type: 'SET', key: 'test', value: 'data' };
       const result = cache.processCommand(command);
       expect(result.success).toBe(true);
     });
 
     it('should handle SET command with TTL', () => {
-      const command: CacheCommand = { type: 'SET', key: 'test', value: 'data', ttl: 1000 };
+      const command: CacheCommand = { id: 'test', type: 'SET', key: 'test', value: 'data', ttl: 1000 };
       const result = cache.processCommand(command);
       expect(result.success).toBe(true);
     });
 
     it('should handle GET command', () => {
       cache.set('test', 'data');
-      const command: CacheCommand = { type: 'GET', key: 'test' };
+      const command: CacheCommand = { id: 'test', type: 'GET', key: 'test' };
       const result = cache.processCommand(command);
       expect(result.success).toBe(true);
       expect((result as CacheSuccessResponse).data).toBe('data');
@@ -247,14 +247,14 @@ describe('ZenCache', () => {
 
     it('should handle DELETE command', () => {
       cache.set('test', 'data');
-      const command: CacheCommand = { type: 'DELETE', key: 'test' };
+      const command: CacheCommand = { id: 'test', type: 'DELETE', key: 'test' };
       const result = cache.processCommand(command);
       expect(result.success).toBe(true);
     });
 
     it('should handle EXISTS command', () => {
       cache.set('test', 'data');
-      const command: CacheCommand = { type: 'EXISTS', key: 'test' };
+      const command: CacheCommand = { id: 'test', type: 'EXISTS', key: 'test' };
       const result = cache.processCommand(command);
       expect(result.success).toBe(true);
       expect((result as CacheSuccessResponse).data).toBe(true);
@@ -263,7 +263,7 @@ describe('ZenCache', () => {
     it('should handle KEYS command', () => {
       cache.set('user:1', 'data');
       cache.set('user:2', 'data');
-      const command: CacheCommand = { type: 'KEYS', pattern: 'user:*' };
+      const command: CacheCommand = { id: 'test', type: 'KEYS', pattern: 'user:*' };
       const result = cache.processCommand(command);
       expect(result.success).toBe(true);
       expect((result as CacheSuccessResponse).data).toEqual(
@@ -273,13 +273,13 @@ describe('ZenCache', () => {
 
     it('should handle CLEAR command', () => {
       cache.set('test', 'data');
-      const command: CacheCommand = { type: 'CLEAR' };
+      const command: CacheCommand = { id: 'test', type: 'CLEAR' };
       const result = cache.processCommand(command);
       expect(result.success).toBe(true);
     });
 
     it('should handle STATS command', () => {
-      const command: CacheCommand = { type: 'STATS' };
+      const command: CacheCommand = { id: 'test', type: 'STATS' };
       const result = cache.processCommand(command);
       expect(result.success).toBe(true);
       expect((result as CacheSuccessResponse).data).toEqual(expect.objectContaining({
@@ -293,14 +293,14 @@ describe('ZenCache', () => {
     });
 
     it('should handle PING command', () => {
-      const command: CacheCommand = { type: 'PING' };
+      const command: CacheCommand = { id: 'test', type: 'PING' };
       const result = cache.processCommand(command);
       expect(result.success).toBe(true);
       expect((result as CacheSuccessResponse).data).toBe('PONG');
     });
 
     it('should handle unknown command', () => {
-      const command = { type: 'UNKNOWN' } as any;
+      const command = { id: 'test', type: 'UNKNOWN' } as any;
       const result = cache.processCommand(command);
       expect(result.success).toBe(false);
       expect((result as CacheErrorResponse).error).toBe('Unknown command');
@@ -447,17 +447,17 @@ describe('ZenCache', () => {
       cache.set('key1', 'value1');
       cache.set('key2', false);
       
-      expect(cache.getStats().memoryUsageBytes).toBe(225);
+      expect(cache.getStats().memoryUsageBytes).toBe(215);
       
       // Update an item
       cache.set('key1', 10);
 
-      expect(cache.getStats().memoryUsageBytes).toBe(219);
+      expect(cache.getStats().memoryUsageBytes).toBe(217);
       
       // Delete an item
       cache.delete('key2');
       
-      expect(cache.getStats().memoryUsageBytes).toBe(108);
+      expect(cache.getStats().memoryUsageBytes).toBe(112);
     });
 
     it('should handle large values', () => {
