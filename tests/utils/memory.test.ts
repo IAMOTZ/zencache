@@ -1,4 +1,4 @@
-import { getByteSize, bytesToMB, mbToBytes } from '../../src/utils/memory';
+import { getByteSize, mbToBytes } from '../../src/utils/memory';
 
 describe('Utils', () => {
   describe('getByteSize', () => {
@@ -85,15 +85,6 @@ describe('Utils', () => {
         expect(size).toBeGreaterThan(0);
         expect(end - start).toBeLessThan(100); // Should complete within 100ms
       });
-    });
-  });
-
-  describe('bytesToMB', () => {
-    it('should convert bytes to megabytes correctly', () => {
-      expect(bytesToMB(0)).toBe(0);
-      expect(bytesToMB(1024)).toBe(0.0009765625);
-      expect(bytesToMB(1024 * 1024)).toBe(1);
-      expect(bytesToMB(1024 * 1024 * 10)).toBe(10);
     });
   });
 

@@ -9,7 +9,8 @@ export interface CacheOptions {
 }
 
 export interface ZenCacheConfig {
-  maxMemoryMB?: number;
+  maxItemSizeMB?: number;
+  maxItems?: number;
 }
 
 export interface ZenCacheServerConfig {
@@ -23,9 +24,6 @@ export interface CacheStats {
   hits: number;
   misses: number;
   hitRate: number;
-  memoryUsageBytes: number;
-  maxMemoryBytes: number;
-  memoryUsagePercent: number;
 }
 
 export type CacheCommand = 

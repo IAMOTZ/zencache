@@ -6,42 +6,36 @@ import {
   CacheResponse,
   ZenCacheConfig
 } from './types';
-import { bytesToMB, getByteSize, mbToBytes } from './utils/memory';
+import { getByteSize, mbToBytes } from './utils/memory';
 
 export class ZenCache {
   private store: Map<string, CacheItem> = new Map();
   private hits: number = 0;
   private misses: number = 0;
   private cleanupInterval: NodeJS.Timeout;
-  private currentMemoryBytes: number = 0;
-  private maxMemoryBytes: number;
+  public config: ZenCacheConfig;
 
   constructor(config: ZenCacheConfig = {}) {
+    this.config = ZenCache.getConfigWithDefaults(config);
     // Start cleanup interval to remove expired items
     this.cleanupInterval = setInterval(() => {
       this.cleanup();
     }, ZenCache.CLEANUP_INTERVAL_MS);
-    this.maxMemoryBytes = mbToBytes(config.maxMemoryMB || ZenCache.DEFAULT_MAX_MEMORY_MB);
   }
 
   /**
-   * Check if adding a new item would exceed memory limit
+   * Check if a cache item exceeds configured limits
    */
   private wouldExceedMemoryLimit(key: string, value: any): boolean {
+    const { maxItemSizeMB, maxItems } = this.config;
     const itemSize = ZenCache.getEstimatedCacheItemSize(key, value);
-    return (this.currentMemoryBytes + itemSize) > this.maxMemoryBytes;
-  }
-
-  /**
-   * Update memory usage when adding/removing items
-   */
-  private updateMemoryUsage(key: string, value: any, isAdding: boolean): void {
-    const itemSize = ZenCache.getEstimatedCacheItemSize(key, value);
-    if (isAdding) {
-      this.currentMemoryBytes += itemSize;
-    } else {
-      this.currentMemoryBytes = Math.max(0, this.currentMemoryBytes - itemSize);
+    if (maxItems && this.store.size >= maxItems) {
+      return true;
     }
+    if (maxItemSizeMB && itemSize > mbToBytes(maxItemSizeMB)) {
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -54,19 +48,12 @@ export class ZenCache {
       */
       return {
         success: false, 
-        error: `Cache memory limit reached (${bytesToMB(this.maxMemoryBytes)}MB). Cannot add key: ${key}`
+        error: `Item size exceeds configured limit. Cannot add key: ${key}`
       };
     }
 
     const now = Date.now();
     const expiresAt = options?.ttl ? now + options.ttl : undefined;
-
-    // Remove old item if it exists to update memory usage
-    const existingItem = this.store.get(key);
-    if (existingItem) {
-      this.updateMemoryUsage(key, existingItem.value, false);
-    }
-
     const item: CacheItem<T> = {
       value,
       expiresAt,
@@ -74,7 +61,7 @@ export class ZenCache {
     };
 
     this.store.set(key, item);
-    this.updateMemoryUsage(key, value, true);
+
     return { success: true };
   }
 
@@ -104,14 +91,7 @@ export class ZenCache {
    * Delete a value from the cache
    */
   delete(key: string): boolean {
-    const item = this.store.get(key);
-    const deleted = this.store.delete(key);
-
-    if (deleted && item) {
-      this.updateMemoryUsage(key, item.value, false);
-    }
-
-    return deleted;
+    return this.store.delete(key);
   }
 
   /**
@@ -153,7 +133,6 @@ export class ZenCache {
    */
   clear(): void {
     this.store.clear();
-    this.currentMemoryBytes = 0;
   }
 
   /**
@@ -166,9 +145,6 @@ export class ZenCache {
       hits: this.hits,
       misses: this.misses,
       hitRate: total > 0 ? this.hits / total : 0,
-      maxMemoryBytes: this.maxMemoryBytes,
-      memoryUsageBytes: this.currentMemoryBytes,
-      memoryUsagePercent: (this.currentMemoryBytes / this.maxMemoryBytes) * 100
     };
   }
 
@@ -229,18 +205,10 @@ export class ZenCache {
 
     for (const [key, item] of this.store.entries()) {
       if (item.expiresAt && now > item.expiresAt) {
+        this.store.delete(key)
         expiredKeys.push(key);
       }
     }
-
-    // Remove expired items and update memory usage
-    expiredKeys.forEach(key => {
-      const item = this.store.get(key);
-      if (item) {
-        this.updateMemoryUsage(key, item.value, false);
-      }
-      this.store.delete(key);
-    });
 
     if (expiredKeys.length > 0) {
       console.info(`Cleaned up ${expiredKeys.length} expired items`);
@@ -255,13 +223,12 @@ export class ZenCache {
       clearInterval(this.cleanupInterval);
     }
     this.store.clear();
-    this.currentMemoryBytes = 0;
   }
 
   private static getEstimatedCacheItemSize(key: string, value: any): number {
     const keySize = getByteSize(key);
     const valueSize = getByteSize(value);
-    return keySize + valueSize + 100; // 100byte is a guesstimate Map entry overhead
+    return keySize + valueSize;
   }
 
   public static validateCommand(command: CacheCommand): CacheResponse {
@@ -280,5 +247,15 @@ export class ZenCache {
 
   static CLEANUP_INTERVAL_MS = 60000; // Cleanup expired items every minute
 
-  static DEFAULT_MAX_MEMORY_MB = 10000; // Default max memory of 10GB
+  static DEFAULT_MAX_ITEM_SIZE_MB = 1000; // Default max memory of 1GB
+
+  static DEFAULT_MAX_ITEMS = 1000000; // Default max items of 1Million
+
+  static getConfigWithDefaults(config: ZenCacheConfig): ZenCacheConfig {
+    return {
+      ...config,
+      maxItemSizeMB: config.maxItemSizeMB || ZenCache.DEFAULT_MAX_ITEM_SIZE_MB,
+      maxItems: config.maxItems || ZenCache.DEFAULT_MAX_ITEMS
+    };
+  }
 }

@@ -21,13 +21,6 @@ export const getByteSize = (value: any): number => {
 }
 
 /**
- * Convert bytes to megabytes (MB)
- */
-export const bytesToMB = (bytes: number): number => {
-  return bytes / (1024 * 1024);
-}
-
-/**
  * Convert megabytes to bytes
  */
 export const mbToBytes = (mb: number): number => {

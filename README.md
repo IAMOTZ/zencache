@@ -11,6 +11,7 @@ A simple, high-performance in-memory caching service similar to Redis or Memcach
 - **Statistics tracking** with hit/miss rates
 - **Pattern matching** for key searches
 - **Automatic cleanup** of expired items
+- **Cache memory management** with item limits
 
 ## Installation
 
@@ -101,7 +102,8 @@ The `ZenCacheServer` constructor accepts a configuration object with the followi
 - `port` (number, optional): The port to listen on. Defaults to 6379.
 - `host` (string, optional): The host address to bind to. Defaults to 'localhost'.
 - `cacheConfig` (object, optional): Configuration options for the underlying cache:
-  - `maxMemoryMB` (number, optional): Maximum memory usage in megabytes. Defaults to 10000 (10GB).
+  - `maxItemSizeMB` (number, optional): Maximum item(key + value) size in megabytes. Defaults to 1000 (1GB).
+  - `maxItems` (number, optional): Maximum number of items in the cache. Defaults to 1000000 (1 Million)
 
 
 ### Client Config

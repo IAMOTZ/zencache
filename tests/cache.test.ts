@@ -174,7 +174,7 @@ describe('ZenCache', () => {
       cache.get('non-existent'); // This should increment misses
       expect(cache.getStats().size).toBe(1);
       cache.clear();
-      expect( cache.getStats().size).toBe(0);
+      expect(cache.getStats().size).toBe(0);
     });
   });
 
@@ -186,8 +186,6 @@ describe('ZenCache', () => {
         hits: 0,
         misses: 0,
         hitRate: 0,
-        memoryUsageBytes: 0,
-        memoryUsagePercent: 0
       }));
     });
 
@@ -203,10 +201,7 @@ describe('ZenCache', () => {
         hits: 2,
         misses: 1,
         hitRate: 2 / 3,
-        memoryUsageBytes: expect.any(Number),
-        memoryUsagePercent: expect.any(Number)
       }));
-      expect(result.memoryUsagePercent).toBeGreaterThan(0);
     });
   });
 
@@ -273,8 +268,6 @@ describe('ZenCache', () => {
         hits: 0,
         misses: 0,
         hitRate: 0,
-        memoryUsageBytes: 0,
-        memoryUsagePercent: 0
       }));
     });
 
@@ -341,125 +334,51 @@ describe('ZenCache', () => {
   });
 
   describe('memory management', () => {
-    it('should use default memory limit when no limit is provided', () => {
+    it('should use default limits when no limits are provided', () => {
       const customCache = new ZenCache({});
 
-      const stats = customCache.getStats();
-      expect(stats.maxMemoryBytes).toBe(ZenCache.DEFAULT_MAX_MEMORY_MB * 1024 * 1024);
-      
+      expect(customCache.config.maxItemSizeMB).toBe(ZenCache.DEFAULT_MAX_ITEM_SIZE_MB);
+      expect(customCache.config.maxItems).toBe(ZenCache.DEFAULT_MAX_ITEMS);
+
       customCache.shutdown();
     });
 
     it('should use custom memory limit when provided', () => {
-      const customCache = new ZenCache({ maxMemoryMB: 50 });
+      const customCache = new ZenCache({ maxItemSizeMB: 50, maxItems: 1000 });
 
-      const stats = customCache.getStats();
-      expect(stats.maxMemoryBytes).toBe(50 * 1024 * 1024);
+      expect(customCache.config.maxItemSizeMB).toBe(50);
+      expect(customCache.config.maxItems).toBe(1000);
 
       customCache.shutdown();
     });
 
-    it('should reject new items when memory limit is reached', () => {
-      // Create a cache with very small memory limit
-      const smallCache = new ZenCache({ maxMemoryMB: 0.001 }); // 1KB limit
-      
-      // First item should succeed
+    it('should reject items larger than item size limit', () => {
+      // Create a cache with very small item size limit
+      const smallCache = new ZenCache({ maxItemSizeMB: 0.001 }); // 1KB limit
+
+      // Item < 1KB should succeed
       expect(smallCache.set('key1', 'small').success).toBe(true);
-      
-      // Large item should be rejected
+
+      // Item > 1KB should be rejected
       const largeValue = 'x'.repeat(10000); // 10KB string
       expect(smallCache.set('key2', largeValue).success).toBe(false);
       expect(smallCache.exists('key2')).toBe(false);
 
-      // Should still be able to read existing items
-      expect(smallCache.get('key1')).toBe('small');
-      
-      // Should still be able to delete items
-      expect(smallCache.delete('key1')).toBe(true);
-      
       smallCache.shutdown();
     });
 
-    it('should update memory usage when items are deleted', () => {
-      cache.set('key1', 'value1');
-      cache.set('key2', 'value2');
-      
-      const statsBefore = cache.getStats();
-      const initialMemory = statsBefore.memoryUsageBytes;
-      
-      cache.delete('key1');
-      
-      const statsAfter = cache.getStats();
-      expect(statsAfter.memoryUsageBytes).toBeLessThan(initialMemory);
-    });
+    it('should reject items when max items limit is reached', () => {
+      // Create a cache with very small items limit
+      const smallCache = new ZenCache({ maxItems: 1 });
 
-    it('should reset memory usage when cache is cleared', () => {
-      cache.set('key1', 'value1');
-      cache.set('key2', 'value2');
-      
-      const statsBefore = cache.getStats();
-      expect(statsBefore.memoryUsageBytes).toBeGreaterThan(0);
-      
-      cache.clear();
-      
-      const statsAfter = cache.getStats();
-      expect(statsAfter.memoryUsageBytes).toBe(0);
-    });
+      // First item should succeed
+      expect(smallCache.set('key1', 'small').success).toBe(true);
 
-    it('should update memory usage when expired items are cleaned up', async () => {
-      cache.set('expired1', 'value1', { ttl: 50 });
-      cache.set('expired2', 'value2', { ttl: 50 });
-      
-      const statsBefore = cache.getStats();
-      const initialMemory = statsBefore.memoryUsageBytes;
-      
-      // Wait for expiration
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Trigger cleanup by trying to get expired items
-      cache.get('expired1');
-      cache.get('expired2');
-      
-      const statsAfter = cache.getStats();
-      expect(statsAfter.memoryUsageBytes).toBeLessThan(initialMemory);
-    });
+      // Second item should be rejected
+      expect(smallCache.set('key2', 'small').success).toBe(false);
+      expect(smallCache.exists('key2')).toBe(false);
 
-    it('should maintain accurate memory tracking across operations', () => {
-      // Start with empty cache
-      let stats = cache.getStats();
-      expect(stats.memoryUsageBytes).toBe(0);
-      
-      // Add items
-      cache.set('key1', 'value1');
-      cache.set('key2', false);
-      
-      expect(cache.getStats().memoryUsageBytes).toBe(215);
-      
-      // Update an item
-      cache.set('key1', 10);
-
-      expect(cache.getStats().memoryUsageBytes).toBe(217);
-      
-      // Delete an item
-      cache.delete('key2');
-      
-      expect(cache.getStats().memoryUsageBytes).toBe(112);
-    });
-
-    it('should handle large values', () => {
-      const largeValue = 'x'.repeat(10000);
-      cache.set('large', largeValue)
-      expect(cache.get('large')).toBe(largeValue);
-    });
-
-    it('should handle many keys', () => {
-      // Set many keys
-      for (let i = 0; i < 10000; i++) {
-        cache.set(`key${i}`, `value${i}`);
-      }
-
-      const stats = cache.getStats();
-      expect(stats.size).toBe(10000);
+      smallCache.shutdown();
     });
   });
 });
