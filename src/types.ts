@@ -23,14 +23,14 @@ export interface CacheStats {
 }
 
 export type CacheCommand = 
-  | { type: 'SET'; key: string; value: any; ttl?: number }
-  | { type: 'GET'; key: string }
-  | { type: 'DELETE'; key: string }
-  | { type: 'EXISTS'; key: string }
-  | { type: 'KEYS'; pattern?: string }
-  | { type: 'CLEAR' }
-  | { type: 'STATS' }
-  | { type: 'PING' };
+  | { id: string; type: 'SET'; key: string; value: any; ttl?: number }
+  | { id: string; type: 'GET'; key: string }
+  | { id: string; type: 'DELETE'; key: string }
+  | { id: string; type: 'EXISTS'; key: string }
+  | { id: string; type: 'KEYS'; pattern?: string }
+  | { id: string; type: 'CLEAR' }
+  | { id: string; type: 'STATS' }
+  | { id: string; type: 'PING' };
 
 export type CacheSuccessResponse<T = any> = { success: true; data?: T };
 export type CacheErrorResponse = { success: false; error: string };

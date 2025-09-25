@@ -12,141 +12,92 @@ export class ZenCacheServer {
     this.port = port;
     this.host = host;
     this.cache = new ZenCache();
-    this.server = net.createServer();
-    this.setupServer();
+    this.server = net.createServer(this.onConnection);
+    this.server.on('error', this.onServerError);
   }
 
-  private setupServer(): void {
-    this.server.on('connection', (socket: net.Socket) => {
-      console.log(`New client connected: ${socket.remoteAddress}:${socket.remotePort}`);
-      
-      let buffer = '';
+  /**
+   * Handle new client connections
+   */
+  private onConnection = (socket: net.Socket): void => {
+    console.log(`New client connected: ${socket.remoteAddress}:${socket.remotePort}`);
 
-      socket.on('data', (data: Buffer) => {
-        buffer += data.toString();
-        
-        // Process complete commands (commands end with \n)
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+    let buffer = '';
 
-        for (const line of lines) {
-          if (line.trim()) {
-            this.processCommand(socket, line.trim());
-          }
-        }
-      });
+    socket.on('data', (chunk: Buffer) => {
+      buffer += chunk.toString();
 
-      socket.on('close', () => {
-        console.log(`Client disconnected: ${socket.remoteAddress}:${socket.remotePort}`);
-      });
-
-      socket.on('error', (error: Error) => {
-        console.error(`Socket error: ${error.message}`);
-      });
-
-      // Send welcome message
-      this.sendResponse(socket, { success: true, data: 'Welcome to ZenCache!' });
+      let boundary: number;
+      while ((boundary = buffer.indexOf('\n')) >= 0) {
+        const raw = buffer.slice(0, boundary).trim();
+        buffer = buffer.slice(boundary + 1);
+        if (!raw) continue;
+        this.onData(socket, raw);
+      }
     });
 
-    this.server.on('error', (error: Error) => {
-      console.error(`Server error: ${error.message}`);
-    });
+    socket.on('close', () => this.onClose(socket));
+    socket.on('error', (err: Error) => this.onSocketError(socket, err));
+
+    // Send welcome banner
+    this.sendResponse(socket, { success: true, data: 'Welcome to ZenCache!' });
   }
 
-  private processCommand(socket: net.Socket, commandLine: string): void {
+  /**
+   * Handle incoming data (JSON messages)
+   */
+  private onData = (socket: net.Socket, raw: string): void => {
     try {
-      const command = this.parseCommand(commandLine);
+      const command: CacheCommand = JSON.parse(raw);
+
+      if (!command.id || !command.type) {
+        this.sendResponse(socket, {
+          success: false,
+          error: 'Command must include an id and type',
+        });
+      }
+
       const response = this.cache.processCommand(command);
-      this.sendResponse(socket, response);
+      this.sendResponse(socket, response, command.id);
     } catch (error) {
-      const errorResponse: CacheResponse = {
+      this.sendResponse(socket, {
         success: false,
-        error: error instanceof Error ? error.message : 'Invalid command format'
-      };
-      this.sendResponse(socket, errorResponse);
+        error: error instanceof Error ? error.message : 'Invalid command',
+      });
     }
   }
 
-  private parseCommand(commandLine: string): CacheCommand {
-    const parts = commandLine.split(' ').filter(part => part.length > 0);
-    
-    if (parts.length === 0) {
-      throw new Error('Empty command');
-    }
-
-    const command = parts[0].toUpperCase();
-
-    switch (command) {
-      case 'SET':
-        if (parts.length < 3) {
-          throw new Error('SET requires key and value');
-        }
-        const ttl = parts.length > 3 ? parseInt(parts[3]) : undefined;
-        return {
-          type: 'SET',
-          key: parts[1],
-          value: parts[2],
-          ttl
-        };
-
-      case 'GET':
-        if (parts.length < 2) {
-          throw new Error('GET requires a key');
-        }
-        return {
-          type: 'GET',
-          key: parts[1]
-        };
-
-      case 'DELETE':
-        if (parts.length < 2) {
-          throw new Error('DELETE requires a key');
-        }
-        return {
-          type: 'DELETE',
-          key: parts[1]
-        };
-
-      case 'EXISTS':
-        if (parts.length < 2) {
-          throw new Error('EXISTS requires a key');
-        }
-        return {
-          type: 'EXISTS',
-          key: parts[1]
-        };
-
-      case 'KEYS':
-        return {
-          type: 'KEYS',
-          pattern: parts.length > 1 ? parts[1] : undefined
-        };
-
-      case 'CLEAR':
-        return {
-          type: 'CLEAR'
-        };
-
-      case 'STATS':
-        return {
-          type: 'STATS'
-        };
-
-      case 'PING':
-        return {
-          type: 'PING'
-        };
-
-      default:
-        throw new Error(`Unknown command: ${command}`);
-    }
+  /**
+   * Handle socket close
+   */
+  private onClose = (socket: net.Socket): void => {
+    console.log(`Client disconnected: ${socket.remoteAddress}:${socket.remotePort}`);
   }
 
-  private sendResponse(socket: net.Socket, response: CacheResponse): void {
-    const responseStr = JSON.stringify(response) + '\n';
-    socket.write(responseStr);
+  /**
+   * Handle per-socket error
+   */
+  private onSocketError = (socket: net.Socket, error: Error): void => {
+    console.error(`Socket error (${socket.remoteAddress}:${socket.remotePort}): ${error.message}`);
   }
 
+  /**
+   * Handle server-wide errors
+   */
+  private onServerError = (error: Error): void => {
+    console.error(`Server error: ${error.message}`);
+  }
+
+  /**
+   * Send JSON response with newline terminator
+   */
+  private sendResponse(socket: net.Socket, response: CacheResponse, commandId?: string): void {
+    socket.write(JSON.stringify({ id: commandId, ...response }) + '\n');
+  }
+
+  /**
+   * Start the server
+   */
   public start(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.server.listen(this.port, this.host, () => {
@@ -154,12 +105,13 @@ export class ZenCacheServer {
         resolve();
       });
 
-      this.server.on('error', (error: Error) => {
-        reject(error);
-      });
+      this.server.on('error', reject);
     });
   }
 
+  /**
+   * Stop the server
+   */
   public stop(): Promise<void> {
     return new Promise((resolve) => {
       this.server.close(() => {
@@ -168,9 +120,5 @@ export class ZenCacheServer {
         resolve();
       });
     });
-  }
-
-  public getStats() {
-    return this.cache.getStats();
   }
 }
