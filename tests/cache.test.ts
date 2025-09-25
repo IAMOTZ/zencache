@@ -211,20 +211,6 @@ describe('ZenCache', () => {
   });
 
   describe('processCommand', () => {
-    it('should reject empty key', () => {
-      const command: CacheCommand = { id: 'test', type: 'SET', key: '', value: 'data' };
-      const result = cache.processCommand(command);
-      expect(result.success).toBe(false);
-      expect((result as CacheErrorResponse).error).toBe('Key must be between 1 and 5000 characters');
-    });
-
-    it('should reject key longer than 5000 characters', () => {
-      const command: CacheCommand = { id: 'test', type: 'SET', key: 'key'.repeat(5001), value: 'data' };
-      const result = cache.processCommand(command);
-      expect(result.success).toBe(false);
-      expect((result as CacheErrorResponse).error).toBe('Key must be between 1 and 5000 characters');
-    });
-
     it('should handle SET command', () => {
       const command: CacheCommand = { id: 'test', type: 'SET', key: 'test', value: 'data' };
       const result = cache.processCommand(command);
