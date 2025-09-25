@@ -1,4 +1,4 @@
-import { getByteSize, bytesToMB, mbToBytes } from './utils';
+import { getByteSize, bytesToMB, mbToBytes } from '../src/utils';
 
 describe('Utils', () => {
   describe('getByteSize', () => {

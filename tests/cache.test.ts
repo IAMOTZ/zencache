@@ -1,5 +1,5 @@
-import { ZenCache } from './cache';
-import { CacheCommand, CacheErrorResponse, CacheSuccessResponse } from './types';
+import { ZenCache } from '../src/cache';
+import { CacheCommand, CacheErrorResponse, CacheSuccessResponse } from '../src/types';
 
 describe('ZenCache', () => {
   let cache: ZenCache;
