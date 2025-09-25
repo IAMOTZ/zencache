@@ -1,5 +1,12 @@
-import { CacheItem, CacheOptions, CacheStats, CacheCommand, CacheResponse, ZenCacheConfig } from './types';
-import { bytesToMB, getByteSize, mbToBytes } from './utils';
+import { 
+  CacheItem,
+  CacheOptions,
+  CacheStats,
+  CacheCommand,
+  CacheResponse,
+  ZenCacheConfig
+} from './types';
+import { bytesToMB, getByteSize, mbToBytes } from './utils/memory';
 
 export class ZenCache {
   private store: Map<string, CacheItem> = new Map();
@@ -21,9 +28,7 @@ export class ZenCache {
    * Check if adding a new item would exceed memory limit
    */
   private wouldExceedMemoryLimit(key: string, value: any): boolean {
-    const keySize = getByteSize(key);
-    const valueSize = getByteSize(value);
-    const itemSize = keySize + valueSize + 100; // 100byte is a guesstimate Map entry overhead
+    const itemSize = ZenCache.getEstimatedCacheItemSize(key, value);
     return (this.currentMemoryBytes + itemSize) > this.maxMemoryBytes;
   }
 
@@ -31,9 +36,7 @@ export class ZenCache {
    * Update memory usage when adding/removing items
    */
   private updateMemoryUsage(key: string, value: any, isAdding: boolean): void {
-    const keySize = getByteSize(key);
-    const valueSize = getByteSize(value);
-    const itemSize = keySize + valueSize + 100; // Add overhead for Map entry and CacheItem structure
+    const itemSize = ZenCache.getEstimatedCacheItemSize(key, value);
     if (isAdding) {
       this.currentMemoryBytes += itemSize;
     } else {
@@ -46,6 +49,9 @@ export class ZenCache {
    */
   set<T>(key: string, value: T, options?: CacheOptions): CacheResponse {
     if (this.wouldExceedMemoryLimit(key, value)) {
+      /* @todo: A nice improvement would be to have an option to evict
+        oldest items in cache once memory limit is reached.
+      */
       return {
         success: false, 
         error: `Cache memory limit reached (${bytesToMB(this.maxMemoryBytes)}MB). Cannot add key: ${key}`
@@ -155,7 +161,6 @@ export class ZenCache {
    */
   getStats(): CacheStats {
     const total = this.hits + this.misses;
-
     return {
       size: this.store.size,
       hits: this.hits,
@@ -260,7 +265,13 @@ export class ZenCache {
     this.currentMemoryBytes = 0;
   }
 
-  static validateKey(key: string): CacheResponse {
+  private static getEstimatedCacheItemSize(key: string, value: any): number {
+    const keySize = getByteSize(key);
+    const valueSize = getByteSize(value);
+    return keySize + valueSize + 100; // 100byte is a guesstimate Map entry overhead
+  }
+
+  public static validateKey(key: string): CacheResponse {
     if (key.length < 1 || key.length > 5000) {
       return { success: false, error: 'Key must be between 1 and 5000 characters' };
     }

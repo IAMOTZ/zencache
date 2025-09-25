@@ -1,23 +1,23 @@
-import { getByteSize, bytesToMB, mbToBytes } from '../src/utils';
+import { getByteSize, bytesToMB, mbToBytes } from '../../src/utils/memory';
 
 describe('Utils', () => {
   describe('getByteSize', () => {
     it('should calculate size for string values', () => {
-      expect(getByteSize('hello')).toBe(7);
-      expect(getByteSize('')).toBe(2);
-      expect(getByteSize('a'.repeat(100))).toBe(102);
+      expect(getByteSize('hello')).toBe(5);
+      expect(getByteSize('')).toBe(0);
+      expect(getByteSize('a'.repeat(100))).toBe(100);
     });
 
     it('should calculate size for number values', () => {
-      expect(getByteSize(42)).toBe(2);
-      expect(getByteSize(0)).toBe(1);
-      expect(getByteSize(123456789)).toBe(9);
-      expect(getByteSize(3.14159)).toBe(7);
+      expect(getByteSize(42)).toBe(8);
+      expect(getByteSize(0)).toBe(8);
+      expect(getByteSize(123456789)).toBe(8);
+      expect(getByteSize(3.14159)).toBe(8);
     });
 
     it('should calculate size for boolean values', () => {
-      expect(getByteSize(true)).toBe(4);
-      expect(getByteSize(false)).toBe(5);
+      expect(getByteSize(true)).toBe(1);
+      expect(getByteSize(false)).toBe(1);
     });
 
     it('should calculate size for null and undefined', () => {
