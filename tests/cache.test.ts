@@ -15,12 +15,12 @@ describe('ZenCache', () => {
   describe('set', () => {
     it('should set a value without TTL', () => {
       const result = cache.set('key1', 'value1');
-      expect(result).toBe(true);
+      expect(result.success).toBe(true);
     });
 
     it('should set a value with TTL', () => {
       const result = cache.set('key2', 'value2', { ttl: 1000 });
-      expect(result).toBe(true);
+      expect(result.success).toBe(true);
     });
 
     it('should handle different data types', () => {
@@ -29,10 +29,10 @@ describe('ZenCache', () => {
       const objectResult = cache.set('object', { name: 'test' });
       const arrayResult = cache.set('array', [1, 2, 3]);
 
-      expect(stringResult).toBe(true);
-      expect(numberResult).toBe(true);
-      expect(objectResult).toBe(true);
-      expect(arrayResult).toBe(true);
+      expect(stringResult.success).toBe(true);
+      expect(numberResult.success).toBe(true);
+      expect(objectResult.success).toBe(true);
+      expect(arrayResult.success).toBe(true);
     });
 
     it('should overwrite existing values', () => {
@@ -211,6 +211,20 @@ describe('ZenCache', () => {
   });
 
   describe('processCommand', () => {
+    it('should reject empty key', () => {
+      const command: CacheCommand = { type: 'SET', key: '', value: 'data' };
+      const result = cache.processCommand(command);
+      expect(result.success).toBe(false);
+      expect((result as CacheErrorResponse).error).toBe('Key must be between 1 and 5000 characters');
+    });
+
+    it('should reject key longer than 5000 characters', () => {
+      const command: CacheCommand = { type: 'SET', key: 'key'.repeat(5001), value: 'data' };
+      const result = cache.processCommand(command);
+      expect(result.success).toBe(false);
+      expect((result as CacheErrorResponse).error).toBe('Key must be between 1 and 5000 characters');
+    });
+
     it('should handle SET command', () => {
       const command: CacheCommand = { type: 'SET', key: 'test', value: 'data' };
       const result = cache.processCommand(command);
@@ -364,11 +378,11 @@ describe('ZenCache', () => {
       const smallCache = new ZenCache({ maxMemoryMB: 0.001 }); // 1KB limit
       
       // First item should succeed
-      expect(smallCache.set('key1', 'small')).toBe(true);
+      expect(smallCache.set('key1', 'small').success).toBe(true);
       
       // Large item should be rejected
       const largeValue = 'x'.repeat(10000); // 10KB string
-      expect(smallCache.set('key2', largeValue)).toBe(false);
+      expect(smallCache.set('key2', largeValue).success).toBe(false);
       expect(smallCache.exists('key2')).toBe(false);
 
       // Should still be able to read existing items
@@ -448,7 +462,7 @@ describe('ZenCache', () => {
 
     it('should handle large values', () => {
       const largeValue = 'x'.repeat(10000);
-      expect(cache.set('large', largeValue)).toBe(true);
+      cache.set('large', largeValue)
       expect(cache.get('large')).toBe(largeValue);
     });
 

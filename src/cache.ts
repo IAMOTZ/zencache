@@ -44,37 +44,32 @@ export class ZenCache {
   /**
    * Set a value in the cache
    */
-  set<T>(key: string, value: T, options?: CacheOptions): boolean {
-    try {
-      if (this.wouldExceedMemoryLimit(key, value)) {
-        console.warn(
-          `Cache memory limit reached (${bytesToMB(this.maxMemoryBytes)}MB). Cannot add key: ${key}`
-        );
-        return false;
-      }
-
-      const now = Date.now();
-      const expiresAt = options?.ttl ? now + options.ttl : undefined;
-
-      // Remove old item if it exists to update memory usage
-      const existingItem = this.store.get(key);
-      if (existingItem) {
-        this.updateMemoryUsage(key, existingItem.value, false);
-      }
-
-      const item: CacheItem<T> = {
-        value,
-        expiresAt,
-        createdAt: now
+  set<T>(key: string, value: T, options?: CacheOptions): CacheResponse {
+    if (this.wouldExceedMemoryLimit(key, value)) {
+      return {
+        success: false, 
+        error: `Cache memory limit reached (${bytesToMB(this.maxMemoryBytes)}MB). Cannot add key: ${key}`
       };
-
-      this.store.set(key, item);
-      this.updateMemoryUsage(key, value, true);
-      return true;
-    } catch (error) {
-      console.error('Error setting cache item:', error);
-      return false;
     }
+
+    const now = Date.now();
+    const expiresAt = options?.ttl ? now + options.ttl : undefined;
+
+    // Remove old item if it exists to update memory usage
+    const existingItem = this.store.get(key);
+    if (existingItem) {
+      this.updateMemoryUsage(key, existingItem.value, false);
+    }
+
+    const item: CacheItem<T> = {
+      value,
+      expiresAt,
+      createdAt: now
+    };
+
+    this.store.set(key, item);
+    this.updateMemoryUsage(key, value, true);
+    return { success: true };
   }
 
   /**
@@ -176,18 +171,22 @@ export class ZenCache {
    * Process a cache command
    */
   processCommand(command: CacheCommand): CacheResponse {
+    if ('key' in command) {
+      const validation = ZenCache.validateKey(command.key);
+      if (!validation.success) {
+        return validation;
+      }
+    }
+
     try {
       switch (command.type) {
-        case 'SET':
-          const success = this.set(command.key, command.value, { ttl: command.ttl });
-          if (!success) {
-            return { success: false, error: 'Failed to set value' };
-          }
-          return { success: true, data: success };
-
         case 'GET':
           const value = this.get(command.key);
           return { success: true, data: value };
+
+        case 'SET':
+          const result = this.set(command.key, command.value, { ttl: command.ttl });
+          return result;
 
         case 'DELETE':
           const deleted = this.delete(command.key);
@@ -259,6 +258,13 @@ export class ZenCache {
     }
     this.store.clear();
     this.currentMemoryBytes = 0;
+  }
+
+  static validateKey(key: string): CacheResponse {
+    if (key.length < 1 || key.length > 5000) {
+      return { success: false, error: 'Key must be between 1 and 5000 characters' };
+    }
+    return { success: true };
   }
 
   static CLEANUP_INTERVAL_MS = 60000; // Cleanup expired items every minute
